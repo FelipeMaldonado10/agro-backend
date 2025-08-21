@@ -16,6 +16,7 @@ connectDB();
 app.use('/api/auth', require('./routes/auth.routes'));
 app.use('/api/users', require('./routes/user.routes'));
 app.use('/api/parcelas', require('./routes/parcela.routes'));
+app.use('/api/ciudades', require('./routes/ciudad.routes'));
 
 const PORT = process.env.PORT || 4000;
 app.listen(PORT, () => {
