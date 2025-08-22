@@ -28,9 +28,21 @@ exports.editarProducto = async (req, res) => {
   }
 };
 
-<<<<<<< Updated upstream
-// Eliminar producto
-=======
+
+// Obtener producto por ID
+exports.obtenerProducto = async (req, res) => {
+  try {
+    const producto = await Producto.findById(req.params.id);
+    if (!producto) {
+      return res.status(404).json({ error: 'Producto no encontrado' });
+    }
+    res.json(producto);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+
 exports.obtenerProducto = async (req, res) => {
   try {
     const producto = await productoService.getById(req.params.id);
@@ -43,7 +55,7 @@ exports.obtenerProducto = async (req, res) => {
   }
 };
 
->>>>>>> Stashed changes
+
 exports.eliminarProducto = async (req, res) => {
   try {
     await productoService.remove(req.params.id);

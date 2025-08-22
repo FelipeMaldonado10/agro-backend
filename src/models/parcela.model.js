@@ -6,12 +6,9 @@ const parcelaSchema = new mongoose.Schema({
     required: true 
   },
   ciudad: { 
-    type: String, 
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Ciudad',
     required: true 
-  },
-  coordenadas: {
-    latitud: { type: Number, required: true },
-    longitud: { type: Number, required: true }
   },
   datosClimaticos: {
     temperatura: Number,

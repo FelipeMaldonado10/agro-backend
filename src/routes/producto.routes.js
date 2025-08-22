@@ -9,6 +9,7 @@ router.use(authMiddleware, rbac('superadmin'));
 
 router.post('/', productoController.crearProducto);
 router.get('/', productoController.listarProductos);
+router.get('/:id', productoController.obtenerProducto);
 router.put('/:id', productoController.editarProducto);
 router.delete('/:id', productoController.eliminarProducto);
 
