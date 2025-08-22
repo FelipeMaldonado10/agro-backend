@@ -1,47 +1,38 @@
-const User = require('../models/user.model');
-const { hashPassword } = require('../utils/hash');
 
-// Listar usuarios
+const userService = require('../services/user.service');
+
 exports.getAll = async (req, res) => {
-  const users = await User.find().select('-password');
-  res.json(users);
+  try {
+    const users = await userService.getAll();
+    res.json(users);
+  } catch (err) {
+    res.status(500).json({ message: 'Error al obtener usuarios', error: err.message });
+  }
 };
 
-// Crear usuario (por superadmin)
 exports.create = async (req, res) => {
   try {
-    const { nombre, email, password, rol } = req.body;
-    if (!nombre || !email || !password || !rol) {
-      return res.status(400).json({ message: 'Faltan campos obligatorios' });
-    }
-    const existe = await User.findOne({ email });
-    if (existe) return res.status(400).json({ message: 'Email ya registrado' });
-    const hashed = await hashPassword(password);
-    const user = new User({ nombre, email, password: hashed, rol });
-    await user.save();
-    res.status(201).json({ message: 'Usuario creado' });
+    const user = await userService.create(req.body);
+    res.status(201).json({ message: 'Usuario creado', user });
   } catch (err) {
-    res.status(500).json({ message: 'Error al crear usuario', error: err.message });
+    res.status(400).json({ message: err.message });
   }
 };
 
-// Actualizar usuario
 exports.update = async (req, res) => {
   try {
-    const { nombre, email, password, rol, estado } = req.body;
-    const update = { nombre, email, rol, estado };
-    if (password) update.password = await hashPassword(password);
-    const user = await User.findByIdAndUpdate(req.params.id, update, { new: true }).select('-password');
-    if (!user) return res.status(404).json({ message: 'Usuario no encontrado' });
+    const user = await userService.update(req.params.id, req.body);
     res.json(user);
   } catch (err) {
-    res.status(500).json({ message: 'Error al actualizar usuario', error: err.message });
+    res.status(400).json({ message: err.message });
   }
 };
 
-// Eliminar usuario
 exports.remove = async (req, res) => {
-  const user = await User.findByIdAndDelete(req.params.id);
-  if (!user) return res.status(404).json({ message: 'Usuario no encontrado' });
-  res.json({ message: 'Usuario eliminado' });
+  try {
+    await userService.remove(req.params.id);
+    res.json({ message: 'Usuario eliminado' });
+  } catch (err) {
+    res.status(400).json({ message: err.message });
+  }
 };

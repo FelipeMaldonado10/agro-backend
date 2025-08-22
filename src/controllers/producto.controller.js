@@ -1,34 +1,33 @@
-const Producto = require('../models/producto.model');
 
-// Crear producto
+const productoService = require('../services/producto.service');
+
 exports.crearProducto = async (req, res) => {
   try {
-    const nuevo = await Producto.create(req.body);
+    const nuevo = await productoService.create(req.body);
     res.status(201).json(nuevo);
   } catch (err) {
     res.status(400).json({ error: err.message });
   }
 };
 
-// Listar productos
 exports.listarProductos = async (req, res) => {
   try {
-    const productos = await Producto.find();
+    const productos = await productoService.list();
     res.json(productos);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 };
 
-// Editar producto
 exports.editarProducto = async (req, res) => {
   try {
-    const actualizado = await Producto.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    const actualizado = await productoService.update(req.params.id, req.body);
     res.json(actualizado);
   } catch (err) {
     res.status(400).json({ error: err.message });
   }
 };
+
 
 // Obtener producto por ID
 exports.obtenerProducto = async (req, res) => {
@@ -43,10 +42,23 @@ exports.obtenerProducto = async (req, res) => {
   }
 };
 
-// Eliminar producto
+
+exports.obtenerProducto = async (req, res) => {
+  try {
+    const producto = await productoService.getById(req.params.id);
+    if (!producto) {
+      return res.status(404).json({ error: 'Producto no encontrado' });
+    }
+    res.json(producto);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+
 exports.eliminarProducto = async (req, res) => {
   try {
-    await Producto.findByIdAndDelete(req.params.id);
+    await productoService.remove(req.params.id);
     res.json({ mensaje: 'Producto eliminado' });
   } catch (err) {
     res.status(500).json({ error: err.message });

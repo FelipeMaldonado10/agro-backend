@@ -1,27 +1,6 @@
-const Parcela = require('../models/parcela.model');
-const { fetchWeatherApi } = require('openmeteo');
 
-// Función auxiliar para obtener datos del clima
-async function obtenerDatosClimaticos(latitud, longitud) {
-  try {
-    const params = {
-      latitude: latitud,
-      longitude: longitud,
-      hourly: [
-        "temperature_2m",
-        "relative_humidity_2m",
-        "apparent_temperature",
-        "rain",
-        "precipitation",
-        "temperature_80m",
-        "soil_moisture_0_to_1cm",
-        "soil_moisture_1_to_3cm",
-        "soil_temperature_0cm",
-        "soil_temperature_6cm",
-        "wind_speed_180m"
-      ],
-      timezone: "auto"
-    };
+const parcelaService = require('../services/parcela.service');
+
 
     const responses = await fetchWeatherApi("https://api.open-meteo.com/v1/forecast", params);
     const response = responses[0];
@@ -74,39 +53,58 @@ exports.crearParcela = async (req, res) => {
     });
 
     await parcela.save();
+
+exports.crearParcela = async (req, res) => {
+  try {
+    const { nombre, ciudadId } = req.body;
+    const parcela = await parcelaService.create({ nombre, ciudadId, usuarioId: req.user.id });
+
     res.status(201).json(parcela);
   } catch (error) {
-    res.status(500).json({ mensaje: error.message });
+    res.status(400).json({ mensaje: error.message });
   }
 };
 
-// Obtener todas las parcelas del usuario
 exports.obtenerParcelas = async (req, res) => {
   try {
+
+    const parcelas = await Parcela.find({ usuario: req.user.id });
+
+    const parcelas = await parcelaService.listByUser(req.user.id);
+
     const parcelas = await Parcela.find({ usuario: req.user.id }).populate('ciudad');
+
     res.json(parcelas);
   } catch (error) {
-    res.status(500).json({ mensaje: error.message });
+    res.status(400).json({ mensaje: error.message });
   }
 };
 
-// Obtener una parcela específica
 exports.obtenerParcela = async (req, res) => {
   try {
+
+    const parcela = await Parcela.findOne({ _id: req.params.id, usuario: req.user.id });
+=======
+    const parcela = await parcelaService.getById(req.params.id, req.user.id);
+
     const parcela = await Parcela.findOne({ _id: req.params.id, usuario: req.user.id }).populate('ciudad');
+
     if (!parcela) {
       return res.status(404).json({ mensaje: 'Parcela no encontrada' });
     }
     res.json(parcela);
   } catch (error) {
-    res.status(500).json({ mensaje: error.message });
+    res.status(400).json({ mensaje: error.message });
   }
 };
 
-// Actualizar datos climáticos de una parcela
 exports.actualizarDatosClimaticos = async (req, res) => {
   try {
+
+    const parcela = await Parcela.findOne({ _id: req.params.id, usuario: req.user.id });
+
     const parcela = await Parcela.findOne({ _id: req.params.id, usuario: req.user.id }).populate('ciudad');
+
     if (!parcela) {
       return res.status(404).json({ mensaje: 'Parcela no encontrada' });
     }
@@ -115,16 +113,22 @@ exports.actualizarDatosClimaticos = async (req, res) => {
     parcela.datosClimaticos = datosClimaticos;
     await parcela.save();
 
+
+    const parcela = await parcelaService.updateClima(req.params.id, req.user.id);
+
     res.json(parcela);
   } catch (error) {
-    res.status(500).json({ mensaje: error.message });
+    res.status(400).json({ mensaje: error.message });
   }
 };
 
-// Actualizar información de una parcela
 exports.actualizarParcela = async (req, res) => {
   try {
+
+    const { nombre, ciudad, coordenadas } = req.body;
+
     const { nombre, ciudadId } = req.body;
+
     const parcela = await Parcela.findOne({ _id: req.params.id, usuario: req.user.id });
     
     if (!parcela) {
@@ -145,22 +149,25 @@ exports.actualizarParcela = async (req, res) => {
     }
 
     await parcela.save();
+
+
+    const parcela = await parcelaService.update(req.params.id, req.user.id, req.body);
+
+    res.json(parcela);
+
     const parcelaActualizada = await Parcela.findById(parcela._id).populate('ciudad');
     res.json(parcelaActualizada);
+
   } catch (error) {
-    res.status(500).json({ mensaje: error.message });
+    res.status(400).json({ mensaje: error.message });
   }
 };
 
-// Eliminar una parcela
 exports.eliminarParcela = async (req, res) => {
   try {
-    const parcela = await Parcela.findOneAndDelete({ _id: req.params.id, usuario: req.user.id });
-    if (!parcela) {
-      return res.status(404).json({ mensaje: 'Parcela no encontrada' });
-    }
+    await parcelaService.remove(req.params.id, req.user.id);
     res.json({ mensaje: 'Parcela eliminada correctamente' });
   } catch (error) {
-    res.status(500).json({ mensaje: error.message });
+    res.status(400).json({ mensaje: error.message });
   }
 };
