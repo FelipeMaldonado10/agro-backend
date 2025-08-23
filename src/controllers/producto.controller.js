@@ -19,30 +19,6 @@ exports.listarProductos = async (req, res) => {
   }
 };
 
-exports.editarProducto = async (req, res) => {
-  try {
-    const actualizado = await productoService.update(req.params.id, req.body);
-    res.json(actualizado);
-  } catch (err) {
-    res.status(400).json({ error: err.message });
-  }
-};
-
-
-// Obtener producto por ID
-exports.obtenerProducto = async (req, res) => {
-  try {
-    const producto = await Producto.findById(req.params.id);
-    if (!producto) {
-      return res.status(404).json({ error: 'Producto no encontrado' });
-    }
-    res.json(producto);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-};
-
-
 exports.obtenerProducto = async (req, res) => {
   try {
     const producto = await productoService.getById(req.params.id);
@@ -55,6 +31,14 @@ exports.obtenerProducto = async (req, res) => {
   }
 };
 
+exports.editarProducto = async (req, res) => {
+  try {
+    const actualizado = await productoService.update(req.params.id, req.body);
+    res.json(actualizado);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+};
 
 exports.eliminarProducto = async (req, res) => {
   try {
