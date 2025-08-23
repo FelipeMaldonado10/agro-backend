@@ -1,7 +1,6 @@
 
 const parcelaService = require('../services/parcela.service');
 
-// Crear una nueva parcela
 exports.crearParcela = async (req, res) => {
   try {
     const { nombre, ciudadId } = req.body;
@@ -12,7 +11,6 @@ exports.crearParcela = async (req, res) => {
   }
 };
 
-// Obtener todas las parcelas del usuario
 exports.obtenerParcelas = async (req, res) => {
   try {
     const parcelas = await parcelaService.listByUser(req.user.id);
@@ -22,7 +20,6 @@ exports.obtenerParcelas = async (req, res) => {
   }
 };
 
-// Obtener una parcela específica
 exports.obtenerParcela = async (req, res) => {
   try {
     const parcela = await parcelaService.getById(req.params.id, req.user.id);
@@ -35,7 +32,6 @@ exports.obtenerParcela = async (req, res) => {
   }
 };
 
-// Actualizar datos climáticos de una parcela
 exports.actualizarDatosClimaticos = async (req, res) => {
   try {
     const parcela = await parcelaService.updateClima(req.params.id, req.user.id);
@@ -45,7 +41,6 @@ exports.actualizarDatosClimaticos = async (req, res) => {
   }
 };
 
-// Actualizar una parcela
 exports.actualizarParcela = async (req, res) => {
   try {
     const parcela = await parcelaService.update(req.params.id, req.user.id, req.body);
@@ -55,7 +50,6 @@ exports.actualizarParcela = async (req, res) => {
   }
 };
 
-// Eliminar una parcela
 exports.eliminarParcela = async (req, res) => {
   try {
     await parcelaService.remove(req.params.id, req.user.id);
