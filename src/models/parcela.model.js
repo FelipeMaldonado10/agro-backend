@@ -28,7 +28,11 @@ const parcelaSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId, 
     ref: 'User',
     required: true 
-  }
+  },
+  productos: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Producto'
+  }]
 }, { timestamps: true });
 
 module.exports = mongoose.model('Parcela', parcelaSchema);
