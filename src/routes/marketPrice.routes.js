@@ -1,12 +1,12 @@
+
 const express = require('express');
 const multer = require('multer');
-const xlsx = require('xlsx');
-const MarketPrice = require('../models/marketPrice.model');
-
 const router = express.Router();
 const upload = multer({ dest: 'uploads/' });
+const marketPriceController = require('../controllers/marketPrice.controller');
 
 // POST /api/market-prices/upload - Subir archivo Excel/CSV
+
 router.post('/upload', upload.single('file'), async (req, res) => {
   try {
     const filePath = req.file.path;
@@ -40,24 +40,11 @@ router.post('/', async (req, res) => {
   }
 });
 
+
 // GET /api/market-prices - Listar todos los registros
-router.get('/', async (req, res) => {
-  try {
-    const precios = await MarketPrice.find().sort({ fecha: -1 });
-    res.json(precios);
-  } catch (err) {
-    res.status(500).json({ error: 'Error al listar registros', details: err.message });
-  }
-});
+router.get('/', marketPriceController.list);
 
 // DELETE /api/market-prices/:id - Eliminar registro
-router.delete('/:id', async (req, res) => {
-  try {
-    await MarketPrice.findByIdAndDelete(req.params.id);
-    res.json({ message: 'Registro eliminado' });
-  } catch (err) {
-    res.status(500).json({ error: 'Error al eliminar registro', details: err.message });
-  }
-});
+router.delete('/:id', marketPriceController.remove);
 
 module.exports = router;
