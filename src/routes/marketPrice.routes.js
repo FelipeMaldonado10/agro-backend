@@ -18,9 +18,7 @@ router.post('/upload', upload.single('file'), async (req, res) => {
       producto: r.producto,
       fecha: r.fecha,
       precio: Number(r.precio),
-    ciudad: r.ciudad,
-    mercado: r.mercado,
-    departamento: r.departamento
+      ciudad: r.ciudad
     })));
     res.json({ message: 'Datos importados correctamente', count: data.length });
   } catch (err) {
@@ -31,11 +29,11 @@ router.post('/upload', upload.single('file'), async (req, res) => {
 // POST /api/market-prices - Agregar registro manual
 router.post('/', async (req, res) => {
   try {
-    const { producto, fecha, precio, mercado, departamento } = req.body;
-    if (!producto || !fecha || !precio) {
-      return res.status(400).json({ error: 'producto, fecha y precio son requeridos' });
+    const { producto, fecha, precio, ciudad } = req.body;
+    if (!producto || !fecha || !precio || !ciudad) {
+      return res.status(400).json({ error: 'producto, fecha, precio y ciudad son requeridos' });
     }
-    const nuevo = await MarketPrice.create({ producto, fecha, precio, mercado, departamento });
+    const nuevo = await MarketPrice.create({ producto, fecha, precio, ciudad });
     res.json(nuevo);
   } catch (err) {
     res.status(500).json({ error: 'Error al agregar registro', details: err.message });
