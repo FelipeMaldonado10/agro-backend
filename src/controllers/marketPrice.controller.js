@@ -12,17 +12,22 @@ async function fixCorruptMarketPrices() {
   // Corrige producto por nombre
   const corruptosProducto = await MarketPrice.find({ 'producto': { $type: 'string' } });
   for (const reg of corruptosProducto) {
-    const prod = productos.find(p => p.nombre.toLowerCase() === reg.producto.toLowerCase());
-    if (prod) {
-      await MarketPrice.updateOne({ _id: reg._id }, { $set: { producto: prod._id } });
+    if (typeof reg.producto === 'string') {
+      const prod = productos.find(p => p.nombre.toLowerCase() === reg.producto.toLowerCase());
+      if (prod) {
+        await MarketPrice.updateOne({ _id: reg._id }, { $set: { producto: prod._id } });
+      }
     }
   }
+
   // Corrige ciudad por nombre
   const corruptosCiudad = await MarketPrice.find({ 'ciudad': { $type: 'string' } });
   for (const reg of corruptosCiudad) {
-    const ciu = ciudades.find(c => c.nombre.toLowerCase() === reg.ciudad.toLowerCase());
-    if (ciu) {
-      await MarketPrice.updateOne({ _id: reg._id }, { $set: { ciudad: ciu._id } });
+    if (typeof reg.ciudad === 'string') {
+      const ciu = ciudades.find(c => c.nombre.toLowerCase() === reg.ciudad.toLowerCase());
+      if (ciu) {
+        await MarketPrice.updateOne({ _id: reg._id }, { $set: { ciudad: ciu._id } });
+      }
     }
   }
 }
@@ -105,7 +110,6 @@ exports.create = async (req, res) => {
 
 exports.list = async (req, res) => {
   try {
-    // Solo trae los registros donde producto y ciudad son ObjectId válidos
     const precios = await MarketPrice.find({
       producto: { $type: 'objectId' },
       ciudad: { $type: 'objectId' }
@@ -115,24 +119,16 @@ exports.list = async (req, res) => {
       .sort('-fecha')
       .lean();
 
-    // Busca registros corruptos para informar
-    const corruptos = await MarketPrice.find({
-      $or: [
-        { producto: { $not: { $type: 'objectId' } } },
-        { ciudad: { $not: { $type: 'objectId' } } }
-      ]
-    }).lean();
+    // Transforma los datos para que producto y ciudad sean strings
+    const preciosFormateados = precios.map(precio => ({
+      ...precio,
+      producto: precio.producto.nombre,
+      ciudad: precio.ciudad.nombre
+    }));
 
-    if (corruptos.length > 0) {
-      console.warn('Aún hay registros corruptos en MarketPrice (producto o ciudad no es ObjectId):');
-      corruptos.forEach(c => {
-        console.warn(JSON.stringify(c));
-      });
-    }
+    console.log('Precios enviados al frontend:', preciosFormateados.length);
 
-    console.log('Precios enviados al frontend:', precios.length);
-
-    res.json(precios);
+    res.json(preciosFormateados);
   } catch (err) {
     console.error('Error:', err);
     res.status(500).json({ error: 'Error al obtener precios', details: err.message });
@@ -165,3 +161,99 @@ exports.remove = async (req, res) => {
   }
 };
 
+exports.getRecommendations = async (req, res) => {
+  try {
+    const { ciudad } = req.query;
+    
+    let filtro = {};
+    
+    // Si se proporciona ciudad, convertir nombre a ObjectId
+    if (ciudad) {
+      const ciudadObj = await Ciudad.findOne({ 
+        nombre: { $regex: new RegExp(`^${ciudad}$`, 'i') } 
+      }).lean();
+      
+      if (!ciudadObj) {
+        return res.status(404).json({ error: 'Ciudad no encontrada' });
+      }
+      
+      filtro.ciudad = ciudadObj._id;
+    }
+
+    // Obtener precios más recientes
+    const precios = await MarketPrice.find(filtro)
+      .populate('producto', 'nombre')
+      .populate('ciudad', 'nombre')
+      .sort('-fecha')
+      .limit(50)
+      .lean();
+
+    // Generar recomendaciones basadas en tendencias de precios
+    const recomendaciones = precios.map(precio => ({
+      producto: precio.producto.nombre,
+      ciudad: precio.ciudad.nombre,
+      precio: precio.precio,
+      fecha: precio.fecha,
+      recomendacion: precio.precio < 5000 ? 'Comprar' : 'Esperar'
+    }));
+
+    res.json(recomendaciones);
+  } catch (err) {
+    console.error('Error al generar recomendaciones:', err);
+    res.status(500).json({ error: 'Error al generar recomendaciones', details: err.message });
+  }
+};
+
+exports.getTrends = async (req, res) => {
+  try {
+    const { producto, ciudad } = req.query;
+    
+    let filtro = {};
+    
+    // Si se proporciona producto, convertir nombre a ObjectId
+    if (producto) {
+      const productoObj = await Producto.findOne({ 
+        nombre: { $regex: new RegExp(`^${producto}$`, 'i') } 
+      }).lean();
+      
+      if (!productoObj) {
+        return res.status(404).json({ error: 'Producto no encontrado' });
+      }
+      
+      filtro.producto = productoObj._id;
+    }
+
+    // Si se proporciona ciudad, convertir nombre a ObjectId
+    if (ciudad) {
+      const ciudadObj = await Ciudad.findOne({ 
+        nombre: { $regex: new RegExp(`^${ciudad}$`, 'i') } 
+      }).lean();
+      
+      if (!ciudadObj) {
+        return res.status(404).json({ error: 'Ciudad no encontrada' });
+      }
+      
+      filtro.ciudad = ciudadObj._id;
+    }
+
+    const tendencias = await MarketPrice.find(filtro)
+      .populate('producto', 'nombre')
+      .populate('ciudad', 'nombre')
+      .sort('-fecha')
+      .limit(100)
+      .lean();
+
+    // Formatear respuesta
+    const tendenciasFormateadas = tendencias.map(t => ({
+      producto: t.producto.nombre,
+      ciudad: t.ciudad.nombre,
+      precio: t.precio,
+      fecha: t.fecha
+    }));
+
+    res.json(tendenciasFormateadas);
+  } catch (err) {
+    console.error('Error al obtener tendencias:', err);
+    res.status(500).json({ error: 'Error al obtener tendencias', details: err.message });
+  }
+};
