@@ -4,12 +4,13 @@ const productoController = require('../controllers/producto.controller');
 const authMiddleware = require('../middlewares/auth.middleware');
 const rbac = require('../middlewares/rbac.middleware');
 
-// Solo superadmin puede gestionar productos
-router.use(authMiddleware, rbac('superadmin'));
-
-router.post('/', productoController.crearProducto);
+// Rutas públicas
 router.get('/', productoController.listarProductos);
 router.get('/:id', productoController.obtenerProducto);
+
+// Rutas protegidas - Solo superadmin puede gestionar productos
+router.use(authMiddleware, rbac('superadmin'));
+router.post('/', productoController.crearProducto);
 router.put('/:id', productoController.editarProducto);
 router.delete('/:id', productoController.eliminarProducto);
 
