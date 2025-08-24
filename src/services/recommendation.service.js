@@ -1,6 +1,27 @@
 const Parcela = require('../models/parcela.model');
 const Producto = require('../models/producto.model');
 const MarketPrice = require('../models/marketPrice.model');
+const Ciudad = require('../models/ciudad.model');
+
+// Función auxiliar para obtener nombre de ciudad por ID
+async function getCityName(ciudadId) {
+  try {
+    const ciudad = await Ciudad.findById(ciudadId);
+    return ciudad ? ciudad.nombre : ciudadId.toString();
+  } catch (error) {
+    return ciudadId.toString();
+  }
+}
+
+// Función auxiliar para obtener nombre de producto por ID
+async function getProductName(productoId) {
+  try {
+    const producto = await Producto.findById(productoId);
+    return producto ? producto.nombre : productoId.toString();
+  } catch (error) {
+    return productoId.toString();
+  }
+}
 
 exports.getRecommendationsByUser = async (usuarioId, fechaSiembra = null) => {
   try {
@@ -29,6 +50,7 @@ exports.getRecommendationsByUser = async (usuarioId, fechaSiembra = null) => {
       console.log(`Procesando parcela: ${parcela.nombre} - ${parcela.ciudad.nombre}`);
       
       const clima = parcela.datosClimaticos;
+      const ciudadId = parcela.ciudad._id;
       const ciudadNombre = parcela.ciudad.nombre;
       const productosEvaluados = [];
       let productosConPrecios = 0;
@@ -37,10 +59,10 @@ exports.getRecommendationsByUser = async (usuarioId, fechaSiembra = null) => {
       for (const producto of productos) {
         console.log(`Evaluando producto: ${producto.nombre}`);
         
-        // Buscar precios históricos para este producto en esta ciudad
+        // Buscar precios históricos usando ObjectIds
         const precios = await MarketPrice.find({
-          producto: producto.nombre,
-          ciudad: ciudadNombre,
+          producto: producto._id,  // Usar ObjectId del producto
+          ciudad: ciudadId,        // Usar ObjectId de la ciudad
           fecha: { $lte: fechaSiembra || new Date().toISOString().split('T')[0] }
         }).sort({ fecha: -1 }).limit(10);
 
@@ -129,7 +151,7 @@ exports.getRecommendationsByUser = async (usuarioId, fechaSiembra = null) => {
 
         productosEvaluados.push({
           producto: producto.nombre,
-          producto_id: producto._id,
+          producto_id: producto._id.toString(),
           score,
           promedio_precio: Math.round(promedio),
           tendencia_precio: Math.round(tendencia),
@@ -171,9 +193,10 @@ exports.getRecommendationsByUser = async (usuarioId, fechaSiembra = null) => {
 
       recomendaciones.push({
         parcela: {
-          id: parcela._id,
+          id: parcela._id.toString(),
           nombre: parcela.nombre,
           ciudad: ciudadNombre,
+          ciudad_id: ciudadId.toString(),
           coordenadas: parcela.ciudad.coordenadas
         },
         mejores_opciones: mejores,
