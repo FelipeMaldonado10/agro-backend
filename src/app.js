@@ -21,6 +21,8 @@ app.use('/api/ciudades', require('./routes/ciudad.routes'));
 app.use('/api/recomendaciones', require('./routes/recommendation.routes'));
 app.use('/api/market-prices', require('./routes/marketPrice.routes'));
 app.use('/api/productos', require('./routes/producto.routes'));
+app.use('/api/cultivos', require('./routes/cultivo.routes'));
+app.use('/api/seed', require('./routes/seed.routes')); // Ruta temporal para seeding
 
 const PORT = process.env.PORT || 4000;
 app.listen(PORT, () => {
