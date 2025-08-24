@@ -129,6 +129,7 @@ exports.getRecommendationsByUser = async (usuarioId, fechaSiembra = null) => {
 
         productosEvaluados.push({
           producto: producto.nombre,
+          producto_id: producto._id,
           score,
           promedio_precio: Math.round(promedio),
           tendencia_precio: Math.round(tendencia),
@@ -153,6 +154,11 @@ exports.getRecommendationsByUser = async (usuarioId, fechaSiembra = null) => {
         .sort((a, b) => b.score - a.score)
         .slice(0, 3);
 
+      // Agregar información de ranking a los mejores
+      mejores.forEach((producto, index) => {
+        producto.posicion_ranking = index + 1;
+      });
+
       // Información de estado
       const estadoInfo = {
         total_productos_evaluados: productosEvaluados.length,
@@ -171,6 +177,7 @@ exports.getRecommendationsByUser = async (usuarioId, fechaSiembra = null) => {
           coordenadas: parcela.ciudad.coordenadas
         },
         mejores_opciones: mejores,
+        todos_los_productos: productosEvaluados.sort((a, b) => b.score - a.score),
         estado_datos: estadoInfo,
         alertas_generales: [
           ...(productosSinPrecios.length > 0 ? [`Sin precios históricos para: ${productosSinPrecios.join(', ')}`] : []),

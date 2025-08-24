@@ -5,7 +5,16 @@ exports.create = async (data) => {
 };
 
 exports.list = async () => {
-  return await Producto.find();
+  try {
+    console.log('Producto.service.list: Buscando productos...');
+    const productos = await Producto.find();
+    console.log('Producto.service.list: Productos encontrados:', productos.length);
+    console.log('Producto.service.list: Productos:', productos);
+    return productos;
+  } catch (error) {
+    console.error('Producto.service.list: Error al buscar productos:', error);
+    throw error;
+  }
 };
 
 exports.update = async (id, data) => {

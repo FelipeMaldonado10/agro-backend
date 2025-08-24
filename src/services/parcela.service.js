@@ -1,5 +1,6 @@
 const Parcela = require('../models/parcela.model');
 const Ciudad = require('../models/ciudad.model');
+const Cultivo = require('../models/cultivo.model');
 const { fetchWeatherApi } = require('openmeteo');
 
 async function obtenerDatosClimaticos(latitud, longitud) {
@@ -55,11 +56,50 @@ exports.create = async ({ nombre, ciudadId, usuarioId }) => {
 };
 
 exports.listByUser = async (usuarioId) => {
-  return await Parcela.find({ usuario: usuarioId }).populate('ciudad');
+  const parcelas = await Parcela.find({ usuario: usuarioId }).populate('ciudad');
+  
+  // Para cada parcela, verificar si tiene cultivos activos
+  const parcelasConEstado = await Promise.all(
+    parcelas.map(async (parcela) => {
+      const cultivosActivos = await Cultivo.find({
+        parcela: parcela._id,
+        estado: { $in: ['sembrado', 'en_crecimiento', 'listo_cosecha'] }
+      }).populate('producto', 'nombre');
+
+      return {
+        ...parcela.toObject(),
+        tiene_cultivos_activos: cultivosActivos.length > 0,
+        cultivos_activos: cultivosActivos,
+        total_cultivos_activos: cultivosActivos.length
+      };
+    })
+  );
+
+  return parcelasConEstado;
 };
 
 exports.getById = async (id, usuarioId) => {
-  return await Parcela.findOne({ _id: id, usuario: usuarioId }).populate('ciudad');
+  const parcela = await Parcela.findOne({ _id: id, usuario: usuarioId }).populate('ciudad');
+  
+  if (!parcela) {
+    return null;
+  }
+
+  // Obtener información de cultivos para esta parcela
+  const cultivosActivos = await Cultivo.find({
+    parcela: id,
+    estado: { $in: ['sembrado', 'en_crecimiento', 'listo_cosecha'] }
+  }).populate('producto', 'nombre');
+
+  const totalCultivos = await Cultivo.countDocuments({ parcela: id });
+
+  return {
+    ...parcela.toObject(),
+    tiene_cultivos_activos: cultivosActivos.length > 0,
+    cultivos_activos: cultivosActivos,
+    total_cultivos_activos: cultivosActivos.length,
+    total_cultivos_historicos: totalCultivos
+  };
 };
 
 exports.updateClima = async (id, usuarioId) => {
@@ -87,5 +127,15 @@ exports.update = async (id, usuarioId, { nombre, ciudadId }) => {
 };
 
 exports.remove = async (id, usuarioId) => {
+  // Verificar si hay cultivos activos antes de eliminar
+  const cultivosActivos = await Cultivo.find({
+    parcela: id,
+    estado: { $in: ['sembrado', 'en_crecimiento', 'listo_cosecha'] }
+  });
+
+  if (cultivosActivos.length > 0) {
+    throw new Error('No se puede eliminar la parcela porque tiene cultivos activos. Finaliza los cultivos primero.');
+  }
+
   return await Parcela.findOneAndDelete({ _id: id, usuario: usuarioId });
 };
