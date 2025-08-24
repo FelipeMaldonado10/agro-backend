@@ -52,15 +52,7 @@ exports.crearCultivoDesdeRecomendacion = async (datosReq) => {
       throw new Error('Producto no encontrado');
     }
 
-    // Verificar si ya hay cultivos activos en esta parcela
-    const cultivosActivos = await Cultivo.find({
-      parcela: parcelaId,
-      estado: { $in: ['sembrado', 'en_crecimiento', 'listo_cosecha'] }
-    });
-
-    if (cultivosActivos.length > 0) {
-      throw new Error('Ya existe un cultivo activo en esta parcela. Termina el cultivo actual antes de iniciar uno nuevo.');
-    }
+  // Se permite crear múltiples cultivos activos en la misma parcela
 
     // Calcular estimaciones
     const estimaciones = await calcularEstimaciones(
@@ -141,15 +133,7 @@ exports.crearCultivoManual = async (datosReq) => {
       throw new Error('Producto no encontrado');
     }
 
-    // Verificar cultivos activos
-    const cultivosActivos = await Cultivo.find({
-      parcela: parcelaId,
-      estado: { $in: ['sembrado', 'en_crecimiento', 'listo_cosecha'] }
-    });
-
-    if (cultivosActivos.length > 0) {
-      throw new Error('Ya existe un cultivo activo en esta parcela');
-    }
+  // Se permite crear múltiples cultivos activos en la misma parcela
 
     // Calcular estimaciones
     const estimaciones = await calcularEstimaciones(
