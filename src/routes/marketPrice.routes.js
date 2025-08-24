@@ -42,6 +42,17 @@ router.post('/', async (req, res) => {
 
 
 // GET /api/market-prices - Listar todos los registros
+router.get('/', async (req, res) => {
+  try {
+    const precios = await MarketPrice.find()
+      .populate('producto', 'nombre') // Solo traer el nombre del producto
+      .populate('ciudad', 'nombre')   // Solo traer el nombre de la ciudad
+      .sort({ fecha: -1 });
+    res.json(precios);
+  } catch (err) {
+    res.status(500).json({ error: 'Error al listar registros', details: err.message });
+  }
+});
 router.get('/', marketPriceController.list);
 
 // DELETE /api/market-prices/:id - Eliminar registro
