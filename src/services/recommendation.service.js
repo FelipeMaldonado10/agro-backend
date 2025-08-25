@@ -47,9 +47,14 @@ exports.getRecommendationsByUser = async (usuarioId, fechaSiembra = null) => {
         console.log(`Evaluando producto: ${producto.nombre}`);
         
         // Buscar precios históricos usando solo el producto (sin filtro de ciudad)
+        // Asegúrate de comparar fechas como strings YYYY-MM-DD
+        const fechaLimite = fechaSiembra 
+          ? new Date(fechaSiembra).toISOString().split('T')[0] 
+          : new Date().toISOString().split('T')[0];
+
         const precios = await MarketPrice.find({
           producto: producto._id,
-          fecha: { $lte: fechaSiembra || new Date().toISOString().split('T')[0] }
+          fecha: { $lte: fechaLimite }
         }).sort({ fecha: -1 }).limit(10);
 
         console.log(`Precios encontrados para ${producto.nombre}: ${precios.length}`);
