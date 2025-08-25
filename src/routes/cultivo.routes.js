@@ -4,8 +4,15 @@ const cultivoController = require('../controllers/cultivo.controller');
 const authMiddleware = require('../middlewares/auth.middleware');
 const rbacMiddleware = require('../middlewares/rbac.middleware');
 
-// Aplicar middleware de autenticación a todas las rutas
+
+// Aplicar middleware de autenticación a todas las rutas a partir de aquí
 router.use(authMiddleware);
+
+// Endpoint para predicción en tiempo real
+router.post('/estimaciones',
+  rbacMiddleware('productor', 'admin', 'superadmin','any'),
+  cultivoController.calcularEstimacionesRealtime
+);
 
 // Rutas para crear cultivos
 router.post('/desde-recomendacion', 
