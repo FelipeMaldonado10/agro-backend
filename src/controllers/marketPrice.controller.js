@@ -2,38 +2,6 @@ const marketPriceService = require('../services/marketPrice.service');
 const xlsx = require('xlsx');
 const MarketPrice = require('../models/marketPrice.model');
 const Producto = require('../models/producto.model');
-const Ciudad = require('../models/ciudad.model');
-
-// Corrige registros corruptos en la base de datos (solo una vez por arranque)
-async function fixCorruptMarketPrices() {
-  const productos = await Producto.find().lean();
-  const ciudades = await Ciudad.find().lean();
-
-  // Corrige producto por nombre
-  const corruptosProducto = await MarketPrice.find({ 'producto': { $type: 'string' } });
-  for (const reg of corruptosProducto) {
-    if (typeof reg.producto === 'string') {
-      const prod = productos.find(p => p.nombre.toLowerCase() === reg.producto.toLowerCase());
-      if (prod) {
-        await MarketPrice.updateOne({ _id: reg._id }, { $set: { producto: prod._id } });
-      }
-    }
-  }
-
-  // Corrige ciudad por nombre
-  const corruptosCiudad = await MarketPrice.find({ 'ciudad': { $type: 'string' } });
-  for (const reg of corruptosCiudad) {
-    if (typeof reg.ciudad === 'string') {
-      const ciu = ciudades.find(c => c.nombre.toLowerCase() === reg.ciudad.toLowerCase());
-      if (ciu) {
-        await MarketPrice.updateOne({ _id: reg._id }, { $set: { ciudad: ciu._id } });
-      }
-    }
-  }
-}
-
-// Ejecuta la corrección al iniciar el servidor
-fixCorruptMarketPrices().catch(console.error);
 
 exports.upload = async (req, res) => {
   try {
@@ -42,9 +10,8 @@ exports.upload = async (req, res) => {
     const sheetName = workbook.SheetNames[0];
     const rawData = xlsx.utils.sheet_to_json(workbook.Sheets[sheetName]);
 
-    // Obtener todos los productos y ciudades
+    // Obtener todos los productos
     const productos = await Producto.find().lean();
-    const ciudades = await Ciudad.find().lean();
 
     // Procesar los datos para convertir nombres a IDs
     const data = await Promise.all(rawData.map(async (row) => {
@@ -54,15 +21,8 @@ exports.upload = async (req, res) => {
         throw new Error(`Producto no encontrado: ${row.producto}`);
       }
 
-      // Buscar la ciudad por nombre
-      const ciudad = ciudades.find(c => c.nombre.toLowerCase() === row.ciudad.toLowerCase());
-      if (!ciudad) {
-        throw new Error(`Ciudad no encontrada: ${row.ciudad}`);
-      }
-
       return {
         producto: producto._id,
-        ciudad: ciudad._id,
         fecha: row.fecha,
         precio: Number(row.precio)
       };
@@ -87,18 +47,13 @@ exports.create = async (req, res) => {
         return res.status(400).json({ error: 'Producto no encontrado', details: `No se encontró un producto con el nombre: ${req.body.producto}` });
       }
     }
-    if (req.body.ciudad && typeof req.body.ciudad === 'string' && !req.body.ciudad.match(/^[0-9a-fA-F]{24}$/)) {
-      const ciudad = await Ciudad.findOne({ nombre: { $regex: new RegExp(`^${req.body.ciudad}$`, 'i') } }).lean();
-      if (ciudad) {
-        req.body.ciudad = ciudad._id;
-      } else {
-        return res.status(400).json({ error: 'Ciudad no encontrada', details: `No se encontró una ciudad con el nombre: ${req.body.ciudad}` });
-      }
+    // Validar que producto sea ObjectId
+    if (!req.body.producto.match(/^[0-9a-fA-F]{24}$/)) {
+      return res.status(400).json({ error: 'producto debe ser ObjectId válido' });
     }
-    // Validar que producto y ciudad sean ObjectId
-    if (!req.body.producto.match(/^[0-9a-fA-F]{24}$/) || !req.body.ciudad.match(/^[0-9a-fA-F]{24}$/)) {
-      return res.status(400).json({ error: 'producto y ciudad deben ser ObjectId válidos' });
-    }
+
+    // Elimina ciudad del body si viene
+    delete req.body.ciudad;
 
     const nuevo = await marketPriceService.create(req.body);
     res.json(nuevo);
@@ -111,19 +66,16 @@ exports.create = async (req, res) => {
 exports.list = async (req, res) => {
   try {
     const precios = await MarketPrice.find({
-      producto: { $type: 'objectId' },
-      ciudad: { $type: 'objectId' }
+      producto: { $type: 'objectId' }
     })
       .populate('producto', 'nombre')
-      .populate('ciudad', 'nombre')
       .sort('-fecha')
       .lean();
 
-    // Transforma los datos para que producto y ciudad sean strings
+    // Transforma los datos para que producto sea string
     const preciosFormateados = precios.map(precio => ({
       ...precio,
-      producto: precio.producto.nombre,
-      ciudad: precio.ciudad.nombre
+      producto: precio.producto.nombre
     }));
 
     console.log('Precios enviados al frontend:', preciosFormateados.length);
@@ -139,7 +91,6 @@ exports.getById = async (req, res) => {
   try {
     const precio = await MarketPrice.findById(req.params.id)
       .populate('producto', 'nombre')
-      .populate('ciudad', 'nombre')
       .lean();
     
     if (!precio) {
@@ -163,27 +114,9 @@ exports.remove = async (req, res) => {
 
 exports.getRecommendations = async (req, res) => {
   try {
-    const { ciudad } = req.query;
-    
-    let filtro = {};
-    
-    // Si se proporciona ciudad, convertir nombre a ObjectId
-    if (ciudad) {
-      const ciudadObj = await Ciudad.findOne({ 
-        nombre: { $regex: new RegExp(`^${ciudad}$`, 'i') } 
-      }).lean();
-      
-      if (!ciudadObj) {
-        return res.status(404).json({ error: 'Ciudad no encontrada' });
-      }
-      
-      filtro.ciudad = ciudadObj._id;
-    }
-
     // Obtener precios más recientes
-    const precios = await MarketPrice.find(filtro)
+    const precios = await MarketPrice.find({})
       .populate('producto', 'nombre')
-      .populate('ciudad', 'nombre')
       .sort('-fecha')
       .limit(50)
       .lean();
@@ -191,7 +124,6 @@ exports.getRecommendations = async (req, res) => {
     // Generar recomendaciones basadas en tendencias de precios
     const recomendaciones = precios.map(precio => ({
       producto: precio.producto.nombre,
-      ciudad: precio.ciudad.nombre,
       precio: precio.precio,
       fecha: precio.fecha,
       recomendacion: precio.precio < 5000 ? 'Comprar' : 'Esperar'
@@ -206,7 +138,7 @@ exports.getRecommendations = async (req, res) => {
 
 exports.getTrends = async (req, res) => {
   try {
-    const { producto, ciudad } = req.query;
+    const { producto } = req.query;
     
     let filtro = {};
     
@@ -223,22 +155,8 @@ exports.getTrends = async (req, res) => {
       filtro.producto = productoObj._id;
     }
 
-    // Si se proporciona ciudad, convertir nombre a ObjectId
-    if (ciudad) {
-      const ciudadObj = await Ciudad.findOne({ 
-        nombre: { $regex: new RegExp(`^${ciudad}$`, 'i') } 
-      }).lean();
-      
-      if (!ciudadObj) {
-        return res.status(404).json({ error: 'Ciudad no encontrada' });
-      }
-      
-      filtro.ciudad = ciudadObj._id;
-    }
-
     const tendencias = await MarketPrice.find(filtro)
       .populate('producto', 'nombre')
-      .populate('ciudad', 'nombre')
       .sort('-fecha')
       .limit(100)
       .lean();
@@ -246,7 +164,6 @@ exports.getTrends = async (req, res) => {
     // Formatear respuesta
     const tendenciasFormateadas = tendencias.map(t => ({
       producto: t.producto.nombre,
-      ciudad: t.ciudad.nombre,
       precio: t.precio,
       fecha: t.fecha
     }));
