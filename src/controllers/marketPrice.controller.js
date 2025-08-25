@@ -114,7 +114,7 @@ exports.remove = async (req, res) => {
 
 exports.getRecommendations = async (req, res) => {
   try {
-    // Obtener precios más recientes
+    // Obtener precios más recientes (sin filtrar por ciudad)
     const precios = await MarketPrice.find({})
       .populate('producto', 'nombre')
       .sort('-fecha')
