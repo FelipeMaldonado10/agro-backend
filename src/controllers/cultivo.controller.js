@@ -1,6 +1,37 @@
 const cultivoService = require('../services/cultivo.service');
 const productoService = require('../services/producto.service');
 
+// Predicción en tiempo real para estimaciones
+exports.calcularEstimacionesRealtime = async (req, res) => {
+  try {
+    const { productoId, ciudadNombre, cantidadSembrada, areaSembrada, unidadArea, fechaSiembra } = req.body;
+    if (!productoId || !ciudadNombre || !cantidadSembrada || !areaSembrada || !unidadArea) {
+      return res.status(400).json({
+        success: false,
+        message: 'Faltan datos requeridos para la predicción.'
+      });
+    }
+    // Buscar producto por ID
+    const producto = await require('../models/producto.model').findById(productoId);
+    if (!producto) {
+      return res.status(404).json({ success: false, message: 'Producto no encontrado' });
+    }
+    // Calcular estimaciones usando la función auxiliar exportada
+    const estimaciones = await cultivoService.calcularEstimaciones(
+      producto,
+      ciudadNombre,
+      cantidadSembrada,
+      areaSembrada,
+      unidadArea,
+      fechaSiembra
+    );
+    res.json({ success: true, estimaciones });
+  } catch (error) {
+    console.error('Error en calcularEstimacionesRealtime:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
 // Crear cultivo desde recomendación
 exports.crearCultivoDesdeRecomendacion = async (req, res) => {
   try {

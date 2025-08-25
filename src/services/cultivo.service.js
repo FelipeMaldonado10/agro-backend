@@ -445,46 +445,111 @@ exports.getAnalisisComparativo = async (cultivoId, usuarioId) => {
   }
 };
 
-// Función auxiliar para calcular estimaciones
+
+// Función auxiliar para calcular estimaciones con predicción de precio para la fecha de cosecha
+
 async function calcularEstimaciones(producto, ciudadNombre, cantidadSembrada, areaSembrada, unidadArea, fechaSiembra) {
   try {
-    // Obtener precios históricos más recientes
-    const precios = await MarketPrice.find({
+    // Mostrar datos de entrada
+    console.log('[Estimaciones] Datos recibidos:', {
       producto: producto.nombre,
-      ciudad: ciudadNombre,
-      fecha: { $lte: fechaSiembra || new Date().toISOString().split('T')[0] }
-    }).sort({ fecha: -1 }).limit(20);
-
-    let precioEstimado = 0;
-    if (precios.length > 0) {
-      // Calcular promedio de precios más recientes
-      const valores = precios.map(p => p.precio);
-      precioEstimado = valores.reduce((a, b) => a + b, 0) / valores.length;
-    }
-
-    // Calcular rendimiento estimado por área
-    // Este valor podría venir de datos históricos o especificaciones del producto
-    let rendimientoPorArea = 2; // kg por m2 por defecto
-    if (unidadArea === 'hectarea') {
-      rendimientoPorArea = 20000; // kg por hectárea por defecto
-    }
-
-    // Si el producto tiene datos específicos de rendimiento, usarlos
-    if (producto.rendimiento_estimado) {
-      rendimientoPorArea = producto.rendimiento_estimado;
-    }
-
-    // Calcular cantidad estimada basada en el área
-    const cantidadEstimada = areaSembrada * rendimientoPorArea;
-    
-    // Calcular ingresos estimados
-    const ingresosEstimados = cantidadEstimada * precioEstimado;
+      ciudadNombre,
+      cantidadSembrada,
+      areaSembrada,
+      unidadArea,
+      fechaSiembra
+    });
 
     // Calcular fecha de cosecha estimada
     const fechaCosechaEstimada = new Date(fechaSiembra || new Date());
     fechaCosechaEstimada.setDate(
       fechaCosechaEstimada.getDate() + (producto.tiempo_cosecha || 90)
     );
+    const fechaCosechaISO = fechaCosechaEstimada.toISOString().split('T')[0];
+
+
+
+    // Buscar precios históricos por producto y ciudad, si no hay, buscar solo por producto
+    let precios = await MarketPrice.find({
+      producto: producto._id,
+      ciudad: ciudadNombre,
+      fecha: { $lte: fechaCosechaISO }
+    }).sort({ fecha: 1 });
+
+    if (precios.length === 0) {
+      console.warn(`[Estimaciones] No hay datos históricos para el producto '${producto.nombre}' en la ciudad '${ciudadNombre}'. Buscando datos globales del producto...`);
+      precios = await MarketPrice.find({
+        producto: producto._id,
+        fecha: { $lte: fechaCosechaISO }
+      }).sort({ fecha: 1 });
+      if (precios.length === 0) {
+        console.warn(`[Estimaciones] No hay datos históricos para el producto '${producto.nombre}' en ninguna ciudad hasta la fecha ${fechaCosechaISO}.`);
+      } else {
+        console.info(`[Estimaciones] Se usaron datos históricos globales del producto '${producto.nombre}' (todas las ciudades).`);
+      }
+    } else {
+      console.info(`[Estimaciones] Se usaron datos históricos para el producto '${producto.nombre}' en la ciudad '${ciudadNombre}'.`);
+    }
+    console.log(`[Estimaciones] Precios históricos encontrados: ${precios.length}`);
+
+
+    let precioEstimado = 0;
+    let metodoPrecio = '';
+    if (precios.length >= 2) {
+      // Regresión lineal simple (Y = b0 + b1*X)
+      const baseDate = new Date(precios[0].fecha);
+      const xs = precios.map(p => (new Date(p.fecha) - baseDate) / (1000 * 60 * 60 * 24));
+      const ys = precios.map(p => Number(p.precio));
+      const xMean = xs.reduce((a, b) => a + b, 0) / xs.length;
+      const yMean = ys.reduce((a, b) => a + b, 0) / ys.length;
+      let num = 0, den = 0;
+      for (let i = 0; i < xs.length; i++) {
+        num += (xs[i] - xMean) * (ys[i] - yMean);
+        den += (xs[i] - xMean) ** 2;
+      }
+      const beta1 = den !== 0 ? num / den : 0;
+      const beta0 = yMean - beta1 * xMean;
+      const diasHastaCosecha = (fechaCosechaEstimada - baseDate) / (1000 * 60 * 60 * 24);
+      precioEstimado = beta0 + beta1 * diasHastaCosecha;
+      metodoPrecio = `regresión lineal: Y = ${beta0.toFixed(2)} + ${beta1.toFixed(4)}*X, X=${diasHastaCosecha.toFixed(2)}`;
+      // Solo usar el promedio si todos los precios son exactamente iguales
+      if (ys.every(y => y === ys[0])) {
+        precioEstimado = yMean;
+        metodoPrecio = 'promedio (todos los precios iguales)';
+      }
+      // Si el precio proyectado es negativo, mostrarlo igualmente (puedes ajustar esto si lo prefieres)
+      console.log(`[Estimaciones] Regresión lineal: β0=${beta0.toFixed(2)}, β1=${beta1.toFixed(4)}, X=${diasHastaCosecha.toFixed(2)} => Precio proyectado: ${precioEstimado}`);
+    } else if (precios.length === 1) {
+      precioEstimado = Number(precios[0].precio);
+      metodoPrecio = 'único precio histórico';
+    } else {
+      precioEstimado = 0;
+      metodoPrecio = 'sin datos';
+    }
+    console.log(`[Estimaciones] Precio estimado: ${precioEstimado} (método: ${metodoPrecio})`);
+
+    // Calcular rendimiento estimado por área
+    let rendimientoPorArea = 0;
+    if (typeof producto.rendimiento_estimado === 'number' && producto.rendimiento_estimado > 0) {
+      rendimientoPorArea = producto.rendimiento_estimado;
+    } else {
+      rendimientoPorArea = 2; // Valor por defecto si no está definido
+      console.warn('[Estimaciones] El producto no tiene rendimiento_estimado definido, usando valor por defecto 2 kg/m²');
+    }
+    console.log(`[Estimaciones] Rendimiento por área usado: ${rendimientoPorArea}`);
+
+    // Calcular cantidad estimada basada en el área
+    const cantidadEstimada = areaSembrada * rendimientoPorArea;
+    // Calcular ingresos estimados
+    const ingresosEstimados = cantidadEstimada * precioEstimado;
+
+    console.log('[Estimaciones] Resultado:', {
+      cantidadEstimada,
+      precioEstimado,
+      ingresosEstimados,
+      fechaCosechaEstimada,
+      rendimientoPorArea
+    });
 
     return {
       cantidad_estimada: Math.round(cantidadEstimada * 100) / 100,
@@ -494,7 +559,6 @@ async function calcularEstimaciones(producto, ciudadNombre, cantidadSembrada, ar
       fecha_cosecha_estimada: fechaCosechaEstimada,
       rendimiento_por_area: rendimientoPorArea
     };
-
   } catch (error) {
     console.error('Error en calcularEstimaciones:', error);
     // Devolver estimaciones básicas en caso de error
@@ -508,5 +572,8 @@ async function calcularEstimaciones(producto, ciudadNombre, cantidadSembrada, ar
     };
   }
 }
+
+// Exportar la función para uso externo
+exports.calcularEstimaciones = calcularEstimaciones;
 
 module.exports = exports;
