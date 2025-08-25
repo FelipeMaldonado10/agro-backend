@@ -59,10 +59,9 @@ exports.getRecommendationsByUser = async (usuarioId, fechaSiembra = null) => {
       for (const producto of productos) {
         console.log(`Evaluando producto: ${producto.nombre}`);
         
-        // Buscar precios históricos usando ObjectIds
+        // Buscar precios históricos usando solo el producto (sin ciudad)
         const precios = await MarketPrice.find({
           producto: producto._id,  // Usar ObjectId del producto
-          ciudad: ciudadId,        // Usar ObjectId de la ciudad
           fecha: { $lte: fechaSiembra || new Date().toISOString().split('T')[0] }
         }).sort({ fecha: -1 }).limit(10);
 
@@ -135,7 +134,7 @@ exports.getRecommendationsByUser = async (usuarioId, fechaSiembra = null) => {
           score += 2; 
           detalles.push(`Tiene historial de precios (promedio: $${Math.round(promedio)})`); 
         } else {
-          alertas.push('No hay historial de precios para este producto en esta ciudad');
+          alertas.push('No hay historial de precios para este producto');
         }
 
         if (tendencia > 0) { 
@@ -205,7 +204,7 @@ exports.getRecommendationsByUser = async (usuarioId, fechaSiembra = null) => {
         alertas_generales: [
           ...(productosSinPrecios.length > 0 ? [`Sin precios históricos para: ${productosSinPrecios.join(', ')}`] : []),
           ...(!clima ? ['Faltan datos climáticos para esta parcela'] : []),
-          ...(productosConPrecios === 0 ? ['No hay precios históricos para ningún producto en esta ciudad'] : [])
+          ...(productosConPrecios === 0 ? ['No hay precios históricos para ningún producto'] : [])
         ]
       });
     }
@@ -271,3 +270,4 @@ exports.getRecommendationByParcela = async (parcelaId, usuarioId, fechaSiembra =
     throw new Error(`Error al generar recomendación para la parcela: ${error.message}`);
   }
 };
+
