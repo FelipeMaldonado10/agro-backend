@@ -1,17 +1,6 @@
 const Parcela = require('../models/parcela.model');
 const Producto = require('../models/producto.model');
 const MarketPrice = require('../models/marketPrice.model');
-const Ciudad = require('../models/ciudad.model');
-
-// Función auxiliar para obtener nombre de ciudad por ID
-async function getCityName(ciudadId) {
-  try {
-    const ciudad = await Ciudad.findById(ciudadId);
-    return ciudad ? ciudad.nombre : ciudadId.toString();
-  } catch (error) {
-    return ciudadId.toString();
-  }
-}
 
 // Función auxiliar para obtener nombre de producto por ID
 async function getProductName(productoId) {
@@ -47,11 +36,9 @@ exports.getRecommendationsByUser = async (usuarioId, fechaSiembra = null) => {
     const fechaConsulta = fechaSiembra ? new Date(fechaSiembra) : new Date();
 
     for (const parcela of parcelas) {
-      console.log(`Procesando parcela: ${parcela.nombre} - ${parcela.ciudad.nombre}`);
+      console.log(`Procesando parcela: ${parcela.nombre}`);
       
       const clima = parcela.datosClimaticos;
-      const ciudadId = parcela.ciudad._id;
-      const ciudadNombre = parcela.ciudad.nombre;
       const productosEvaluados = [];
       let productosConPrecios = 0;
       let productosSinPrecios = [];
@@ -59,9 +46,9 @@ exports.getRecommendationsByUser = async (usuarioId, fechaSiembra = null) => {
       for (const producto of productos) {
         console.log(`Evaluando producto: ${producto.nombre}`);
         
-        // Buscar precios históricos usando solo el producto (sin ciudad)
+        // Buscar precios históricos usando solo el producto (sin filtro de ciudad)
         const precios = await MarketPrice.find({
-          producto: producto._id,  // Usar ObjectId del producto
+          producto: producto._id,
           fecha: { $lte: fechaSiembra || new Date().toISOString().split('T')[0] }
         }).sort({ fecha: -1 }).limit(10);
 
@@ -194,9 +181,8 @@ exports.getRecommendationsByUser = async (usuarioId, fechaSiembra = null) => {
         parcela: {
           id: parcela._id.toString(),
           nombre: parcela.nombre,
-          ciudad: ciudadNombre,
-          ciudad_id: ciudadId.toString(),
-          coordenadas: parcela.ciudad.coordenadas
+          ciudad: parcela.ciudad?.nombre || 'No especificada',
+          coordenadas: parcela.ciudad?.coordenadas || null
         },
         mejores_opciones: mejores,
         todos_los_productos: productosEvaluados.sort((a, b) => b.score - a.score),
