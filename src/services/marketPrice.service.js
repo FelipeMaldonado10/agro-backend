@@ -1,6 +1,8 @@
 const MarketPrice = require('../models/marketPrice.model');
 
 exports.create = async (data) => {
+  // Elimina ciudad del objeto data si existe
+  delete data.ciudad;
   return await MarketPrice.create(data);
 };
 
@@ -8,7 +10,6 @@ exports.list = async () => {
   try {
     return await MarketPrice.find()
       .populate('producto', '_id nombre')
-      .populate('ciudad', '_id nombre')
       .sort({ fecha: -1 })
       .lean();
   } catch (error) {
@@ -22,6 +23,8 @@ exports.getById = async (id) => {
 };
 
 exports.update = async (id, data) => {
+  // Elimina ciudad del objeto data si existe
+  delete data.ciudad;
   return await MarketPrice.findByIdAndUpdate(id, data, { new: true });
 };
 
@@ -31,10 +34,9 @@ exports.remove = async (id) => {
 
 exports.bulkInsert = async (data) => {
   try {
-    // Solo inserta si producto y ciudad son ObjectId válidos
+    // Solo inserta si producto es ObjectId válido
     const validData = data.filter(r =>
-      typeof r.producto === 'string' && r.producto.match(/^[0-9a-fA-F]{24}$/) &&
-      typeof r.ciudad === 'string' && r.ciudad.match(/^[0-9a-fA-F]{24}$/)
+      typeof r.producto === 'string' && r.producto.match(/^[0-9a-fA-F]{24}$/)
     );
 
     // Opcional: advertencias para IDs inválidos
@@ -42,15 +44,11 @@ exports.bulkInsert = async (data) => {
       if (r.producto && typeof r.producto === 'string' && !r.producto.match(/^[0-9a-fA-F]{24}$/)) {
         console.warn(`Invalid product ID format: ${r.producto}`);
       }
-      if (r.ciudad && typeof r.ciudad === 'string' && !r.ciudad.match(/^[0-9a-fA-F]{24}$/)) {
-        console.warn(`Invalid city ID format: ${r.ciudad}`);
-      }
     });
 
     // Formatear datos si es necesario
     const formattedData = validData.map(r => ({
       producto: r.producto,
-      ciudad: r.ciudad,
       fecha: r.fecha,
       precio: Number(r.precio)
     }));
