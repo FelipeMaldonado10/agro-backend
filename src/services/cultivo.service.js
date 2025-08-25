@@ -529,12 +529,12 @@ async function calcularEstimaciones(producto, ciudadNombre, cantidadSembrada, ar
     console.log(`[Estimaciones] Precio estimado: ${precioEstimado} (método: ${metodoPrecio})`);
 
     // Calcular rendimiento estimado por área
-    let rendimientoPorArea = 2; // kg por m2 por defecto
-    if (unidadArea === 'hectarea') {
-      rendimientoPorArea = 20000; // kg por hectárea por defecto
-    }
-    if (producto.rendimiento_estimado) {
+    let rendimientoPorArea = 0;
+    if (typeof producto.rendimiento_estimado === 'number' && producto.rendimiento_estimado > 0) {
       rendimientoPorArea = producto.rendimiento_estimado;
+    } else {
+      rendimientoPorArea = 2; // Valor por defecto si no está definido
+      console.warn('[Estimaciones] El producto no tiene rendimiento_estimado definido, usando valor por defecto 2 kg/m²');
     }
     console.log(`[Estimaciones] Rendimiento por área usado: ${rendimientoPorArea}`);
 
